@@ -1,26 +1,27 @@
 import { View, Text, Alert, ScrollView, TouchableOpacity, FlatList } from "react-native";
-import { useClerk, useUser } from "@clerk/clerk-expo";
 import { useEffect, useState } from "react";
-import { API_URL } from "../../constants/api";
+import { apiRequest } from "../../services/api";
 import { favoritesStyles } from "../../assets/styles/favorites.styles";
 import { COLORS } from "../../constants/colors";
 import { Ionicons } from "@expo/vector-icons";
 import RecipeCard from "../../components/RecipeCard";
 import NoFavoritesFound from "../../components/NoFavoritesFound";
 import LoadingSpinner from "../../components/LoadingSpinner";
+import { useAuth } from "../../contexts/AuthContext";
+import { supabase } from "../../services/supabase";
 
 const FavoritesScreen = () => {
-  const { signOut } = useClerk();
-  const { user } = useUser();
+  const { user } = useAuth();
+  const userId = user?.id;
   const [favoriteRecipes, setFavoriteRecipes] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const loadFavorites = async () => {
-      try {
-        const response = await fetch(`${API_URL}/favorites/${user.id}`);
-        if (!response.ok) throw new Error("Failed to fetch favorites");
+      if (!userId) return;
 
+      try {
+        const response = await apiRequest("/favorites");
         const favorites = await response.json();
 
         // transform the data to match the RecipeCard component's expected format
@@ -32,19 +33,26 @@ const FavoritesScreen = () => {
         setFavoriteRecipes(transformedFavorites);
       } catch (error) {
         console.log("Error loading favorites", error);
-        Alert.alert("Error", "Failed to load favorites");
+        Alert.alert("Error", error.message || "Failed to load favorites");
       } finally {
         setLoading(false);
       }
     };
 
     loadFavorites();
-  }, [user.id]);
+  }, [userId]);
 
   const handleSignOut = () => {
     Alert.alert("Logout", "Are you sure you want to logout?", [
       { text: "Cancel", style: "cancel" },
-      { text: "Logout", style: "destructive", onPress: signOut },
+      {
+        text: "Logout",
+        style: "destructive",
+        onPress: async () => {
+          const { error } = await supabase.auth.signOut();
+          if (error) Alert.alert("Error", error.message);
+        },
+      },
     ]);
   };
 

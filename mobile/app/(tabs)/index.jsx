@@ -1,5 +1,5 @@
 import { View, Text, ScrollView, TouchableOpacity, FlatList, RefreshControl } from "react-native";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "expo-router";
 import { MealAPI } from "../../services/mealAPI";
 import { homeStyles } from "../../assets/styles/home.styles";
@@ -10,8 +10,6 @@ import CategoryFilter from "../../components/CategoryFilter";
 import RecipeCard from "../../components/RecipeCard";
 import LoadingSpinner from "../../components/LoadingSpinner";
 
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
 const HomeScreen = () => {
   const router = useRouter();
   const [selectedCategory, setSelectedCategory] = useState(null);
@@ -21,7 +19,7 @@ const HomeScreen = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
 
@@ -40,7 +38,9 @@ const HomeScreen = () => {
 
       setCategories(transformedCategories);
 
-      if (!selectedCategory) setSelectedCategory(transformedCategories[0].name);
+      if (!selectedCategory && transformedCategories.length > 0) {
+        setSelectedCategory(transformedCategories[0].name);
+      }
 
       const transformedMeals = randomMeals
         .map((meal) => MealAPI.transformMealData(meal))
@@ -55,7 +55,7 @@ const HomeScreen = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedCategory]);
 
   const loadCategoryData = async (category) => {
     try {
@@ -77,14 +77,16 @@ const HomeScreen = () => {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    // await sleep(2000);
-    await loadData();
-    setRefreshing(false);
+    try {
+      await loadData();
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [loadData]);
 
   if (loading && !refreshing) return <LoadingSpinner message="Loading delicions recipes..." />;
 
@@ -184,7 +186,7 @@ const HomeScreen = () => {
 
         <View style={homeStyles.recipesSection}>
           <View style={homeStyles.sectionHeader}>
-            <Text style={homeStyles.sectionTitle}>{selectedCategory}</Text>
+            <Text style={homeStyles.sectionTitle}>{selectedCategory || "Recipes"}</Text>
           </View>
 
           {recipes.length > 0 ? (

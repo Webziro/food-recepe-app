@@ -1,14 +1,14 @@
-import { useAuth } from "@clerk/clerk-expo";
 import { Redirect, Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { COLORS } from "../../constants/colors";
+import { useAuth } from "../../contexts/AuthContext";
 
 const TabsLayout = () => {
-  const { isSignedIn, isLoaded } = useAuth();
+  const { user, isLoading } = useAuth();
 
-  if (!isLoaded) return null;
+  if (isLoading) return null;
 
-  if (!isSignedIn) return <Redirect href={"/(auth)/sign-in"} />;
+  if (!user) return <Redirect href={"/(auth)/sign-in"} />;
 
   return (
     <Tabs

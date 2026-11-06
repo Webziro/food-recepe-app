@@ -9,6 +9,9 @@ dist/
 web-build/
 expo-env.d.ts
 
+# Supabase CLI generated local state and secrets
+supabase/.temp/
+
 # Native
 .kotlin/
 *.orig.*

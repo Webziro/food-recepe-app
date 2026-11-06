@@ -9,7 +9,6 @@ import {
   TouchableOpacity,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { useSignUp } from "@clerk/clerk-expo";
 import { useState } from "react";
 import { authStyles } from "../../assets/styles/auth.styles";
 import { Image } from "expo-image";
@@ -17,10 +16,10 @@ import { COLORS } from "../../constants/colors";
 
 import { Ionicons } from "@expo/vector-icons";
 import VerifyEmail from "./verify-email";
+import { supabase } from "../../services/supabase";
 
 const SignUpScreen = () => {
   const router = useRouter();
-  const { isLoaded, signUp } = useSignUp();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -31,19 +30,14 @@ const SignUpScreen = () => {
     if (!email || !password) return Alert.alert("Error", "Please fill in all fields");
     if (password.length < 6) return Alert.alert("Error", "Password must be at least 6 characters");
 
-    if (!isLoaded) return;
-
     setLoading(true);
 
     try {
-      await signUp.create({ emailAddress: email, password });
-
-      await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
-
-      setPendingVerification(true);
+      const { data, error } = await supabase.auth.signUp({ email, password });
+      if (error) throw error;
+      if (!data.session) setPendingVerification(true);
     } catch (err) {
-      Alert.alert("Error", err.errors?.[0]?.message || "Failed to create account");
-      console.error(JSON.stringify(err, null, 2));
+      Alert.alert("Error", err.message || "Failed to create account");
     } finally {
       setLoading(false);
     }

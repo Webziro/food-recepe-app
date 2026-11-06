@@ -1,4 +1,3 @@
-import { useSignUp } from "@clerk/clerk-expo";
 import { useState } from "react";
 import {
   View,
@@ -13,27 +12,18 @@ import {
 import { authStyles } from "../../assets/styles/auth.styles";
 import { Image } from "expo-image";
 import { COLORS } from "../../constants/colors";
+import { supabase } from "../../services/supabase";
 const VerifyEmail = ({ email, onBack }) => {
-  const { isLoaded, signUp, setActive } = useSignUp();
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleVerification = async () => {
-    if (!isLoaded) return;
-
     setLoading(true);
     try {
-      const signUpAttempt = await signUp.attemptEmailAddressVerification({ code });
-
-      if (signUpAttempt.status === "complete") {
-        await setActive({ session: signUpAttempt.createdSessionId });
-      } else {
-        Alert.alert("Error", "Verification failed. Please try again.");
-        console.error(JSON.stringify(signUpAttempt, null, 2));
-      }
+      const { error } = await supabase.auth.verifyOtp({ email, token: code, type: "signup" });
+      if (error) throw error;
     } catch (err) {
-      Alert.alert("Error", err.errors?.[0]?.message || "Verification failed");
-      console.error(JSON.stringify(err, null, 2));
+      Alert.alert("Error", err.message || "Verification failed");
     } finally {
       setLoading(false);
     }

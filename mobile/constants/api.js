@@ -1,3 +1,6 @@
-// if you're using your physical phone, change this to the deployed url
-// we have explained this in the course :-)
-export const API_URL = "http://localhost:5001/api";
+const configuredApiUrl = process.env.EXPO_PUBLIC_API_URL?.trim();
+const developmentApiUrl = __DEV__ ? "http://localhost:5001/api" : "";
+
+const apiUrl = configuredApiUrl || developmentApiUrl;
+export const API_URL =
+	__DEV__ || apiUrl.startsWith("https://") ? apiUrl.replace(/\/$/, "") : "";

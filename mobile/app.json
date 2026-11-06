@@ -16,6 +16,8 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
+      "package": "com.amaziro.recipeapp",
+      "versionCode": 2,
       "edgeToEdgeEnabled": true
     },
     "web": {
@@ -33,10 +35,27 @@
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
         }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "compileSdkVersion": 36,
+            "targetSdkVersion": 36,
+            "buildToolsVersion": "36.0.0"
+          }
+        }
       ]
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "a807bacb-de6f-45c1-9038-eaddb627a30f"
+      }
+    },
+    "owner": "stanleyamaziro"
   }
 }

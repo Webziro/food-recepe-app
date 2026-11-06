@@ -1,9 +1,11 @@
 import express from "express";
+import cors from "cors";
 import { ENV } from "./config/env.js";
 import { db } from "./config/db.js";
 import { favoritesTable } from "./db/schema.js";
 import { and, eq } from "drizzle-orm";
 import job from "./config/cron.js";
+import { requireAuth } from "./middleware/require-auth.js";
 
 const app = express();
 const PORT = ENV.PORT || 5001;
@@ -11,25 +13,32 @@ const PORT = ENV.PORT || 5001;
 if (ENV.NODE_ENV === "production") job.start();
 
 app.use(express.json());
+app.use(cors());
 
 app.get("/api/health", (req, res) => {
   res.status(200).json({ success: true });
 });
 
-app.post("/api/favorites", async (req, res) => {
+app.post("/api/favorites", requireAuth, async (req, res) => {
   try {
-    const { userId, recipeId, title, image, cookTime, servings } = req.body;
+    const { recipeId, title, image, cookTime, servings } = req.body;
+    const parsedRecipeId = Number(recipeId);
 
-    if (!userId || !recipeId || !title) {
+    if (
+      !Number.isInteger(parsedRecipeId) ||
+      parsedRecipeId <= 0 ||
+      typeof title !== "string" ||
+      !title.trim()
+    ) {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
     const newFavorite = await db
       .insert(favoritesTable)
       .values({
-        userId,
-        recipeId,
-        title,
+        userId: req.authUser.id,
+        recipeId: parsedRecipeId,
+        title: title.trim(),
         image,
         cookTime,
         servings,
@@ -43,14 +52,12 @@ app.post("/api/favorites", async (req, res) => {
   }
 });
 
-app.get("/api/favorites/:userId", async (req, res) => {
+app.get("/api/favorites", requireAuth, async (req, res) => {
   try {
-    const { userId } = req.params;
-
     const userFavorites = await db
       .select()
       .from(favoritesTable)
-      .where(eq(favoritesTable.userId, userId));
+      .where(eq(favoritesTable.userId, req.authUser.id));
 
     res.status(200).json(userFavorites);
   } catch (error) {
@@ -59,14 +66,17 @@ app.get("/api/favorites/:userId", async (req, res) => {
   }
 });
 
-app.delete("/api/favorites/:userId/:recipeId", async (req, res) => {
+app.delete("/api/favorites/:recipeId", requireAuth, async (req, res) => {
   try {
-    const { userId, recipeId } = req.params;
+    const recipeId = Number(req.params.recipeId);
+    if (!Number.isInteger(recipeId) || recipeId <= 0) {
+      return res.status(400).json({ error: "Invalid recipe ID" });
+    }
 
     await db
       .delete(favoritesTable)
       .where(
-        and(eq(favoritesTable.userId, userId), eq(favoritesTable.recipeId, parseInt(recipeId)))
+        and(eq(favoritesTable.userId, req.authUser.id), eq(favoritesTable.recipeId, recipeId))
       );
 
     res.status(200).json({ message: "Favorite removed successfully" });

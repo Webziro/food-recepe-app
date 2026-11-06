@@ -1,8 +1,7 @@
 import { View, Text, Alert, ScrollView, TouchableOpacity } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { useUser } from "@clerk/clerk-expo";
-import { API_URL } from "../../constants/api";
+import { apiRequest } from "../../services/api";
 import { MealAPI } from "../../services/mealAPI";
 import LoadingSpinner from "../../components/LoadingSpinner";
 import { Image } from "expo-image";
@@ -13,6 +12,7 @@ import { COLORS } from "../../constants/colors";
 
 import { Ionicons } from "@expo/vector-icons";
 import { WebView } from "react-native-webview";
+import { useAuth } from "../../contexts/AuthContext";
 
 const RecipeDetailScreen = () => {
   const { id: recipeId } = useLocalSearchParams();
@@ -23,15 +23,18 @@ const RecipeDetailScreen = () => {
   const [isSaved, setIsSaved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  const { user } = useUser();
+  const { user } = useAuth();
   const userId = user?.id;
 
   useEffect(() => {
     const checkIfSaved = async () => {
+      if (!userId) return;
+
       try {
-        const response = await fetch(`${API_URL}/favorites/${userId}`);
+        const response = await apiRequest("/favorites");
+        if (!response.ok) throw new Error("Failed to fetch favorites");
         const favorites = await response.json();
-        const isRecipeSaved = favorites.some((fav) => fav.recipeId === parseInt(recipeId));
+        const isRecipeSaved = favorites.some((fav) => Number(fav.recipeId) === Number(recipeId));
         setIsSaved(isRecipeSaved);
       } catch (error) {
         console.error("Error checking if recipe is saved:", error);
@@ -64,10 +67,11 @@ const RecipeDetailScreen = () => {
   }, [recipeId, userId]);
 
   const getYouTubeEmbedUrl = (url) => {
-    // example url: https://www.youtube.com/watch?v=mTvlmY4vCug
-    const videoId = url.split("v=")[1];
-    return `https://www.youtube.com/embed/${videoId}`;
+    const videoId = url.match(/(?:youtu\.be\/|[?&]v=|\/embed\/)([^?&/]+)/)?.[1];
+    return videoId ? `https://www.youtube.com/embed/${videoId}` : null;
   };
+
+  const youtubeEmbedUrl = recipe?.youtubeUrl ? getYouTubeEmbedUrl(recipe.youtubeUrl) : null;
 
   const handleToggleSave = async () => {
     setIsSaving(true);
@@ -75,7 +79,7 @@ const RecipeDetailScreen = () => {
     try {
       if (isSaved) {
         // remove from favorites
-        const response = await fetch(`${API_URL}/favorites/${userId}/${recipeId}`, {
+        const response = await apiRequest(`/favorites/${recipeId}`, {
           method: "DELETE",
         });
         if (!response.ok) throw new Error("Failed to remove recipe");
@@ -83,14 +87,10 @@ const RecipeDetailScreen = () => {
         setIsSaved(false);
       } else {
         // add to favorites
-        const response = await fetch(`${API_URL}/favorites`, {
+        const response = await apiRequest("/favorites", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
           body: JSON.stringify({
-            userId,
-            recipeId: parseInt(recipeId),
+            recipeId: Number(recipeId),
             title: recipe.title,
             image: recipe.image,
             cookTime: recipe.cookTime,
@@ -110,6 +110,22 @@ const RecipeDetailScreen = () => {
   };
 
   if (loading) return <LoadingSpinner message="Loading recipe details..." />;
+
+  if (!recipe) {
+    return (
+      <View style={recipeDetailStyles.container}>
+        <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 24 }}>
+          <Text style={recipeDetailStyles.sectionTitle}>Recipe unavailable</Text>
+          <Text style={recipeDetailStyles.ingredientText}>
+            This recipe could not be loaded. Check your connection and try again.
+          </Text>
+          <TouchableOpacity style={recipeDetailStyles.primaryButton} onPress={() => router.back()}>
+            <Text style={recipeDetailStyles.buttonText}>Go back</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={recipeDetailStyles.container}>
@@ -194,7 +210,7 @@ const RecipeDetailScreen = () => {
             </View>
           </View>
 
-          {recipe.youtubeUrl && (
+          {youtubeEmbedUrl && (
             <View style={recipeDetailStyles.sectionContainer}>
               <View style={recipeDetailStyles.sectionTitleRow}>
                 <LinearGradient
@@ -210,7 +226,7 @@ const RecipeDetailScreen = () => {
               <View style={recipeDetailStyles.videoCard}>
                 <WebView
                   style={recipeDetailStyles.webview}
-                  source={{ uri: getYouTubeEmbedUrl(recipe.youtubeUrl) }}
+                  source={{ uri: youtubeEmbedUrl }}
                   allowsFullscreenVideo
                   mediaPlaybackRequiresUserAction={false}
                 />
